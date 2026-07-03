@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shape Memory Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 3px solid #4a4a6a;
+            background: #16213e;
+            box-shadow: 0 0 20px rgba(74, 74, 106, 0.3);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #results-canvas {
+            width: 560px;
+            height: 200px;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #menu-overlay {
+            gap: 18px;
+        }
+
+        #menu-overlay h1 {
+            font-size: 24px;
+            color: #e94560;
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 0px #0f3460;
+        }
+
+        #menu-overlay .subtitle {
+            font-size: 11px;
+            color: #8a8aaa;
+            text-align: center;
+            line-height: 2;
+            margin-bottom: 15px;
+            max-width: 650px;
+        }
+
+        .btn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 13px;
+            padding: 16px 30px;
+            border: 2px solid #e94560;
+            background: transparent;
+            color: #e94560;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn:hover {
+            background: #e94560;
+            color: #1a1a2e;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-secondary {
+            border-color: #4a4a6a;
+            color: #8a8aaa;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4a6a;
+            color: #e0e0e0;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #hud {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #8a8aaa;
+            pointer-events: none;
+        }
+
+        #hud.hidden {
+            display: none;
+        }
+
+        .instruction {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 11px;
+            color: #8a8aaa;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .instruction.active {
+            opacity: 1;
+        }
+
+        #results-overlay {
+            gap: 10px;
+            padding: 20px 30px;
+            justify-content: center;
+        }
+
+        .results-title {
+            font-size: 16px;
+            color: #e94560;
+            margin-bottom: 5px;
+        }
+
+        .results-scores {
+            font-size: 12px;
+            line-height: 2.4;
+            text-align: center;
+        }
+
+        .results-scores .good {
+            color: #4ade80;
+        }
+
+        .results-scores .ok {
+            color: #fbbf24;
+        }
+
+        .results-scores .poor {
+            color: #f87171;
+        }
+
+        .results-labels {
+            display: flex;
+            width: 560px;
+            justify-content: space-around;
+            font-size: 11px;
+            color: #8a8aaa;
+            margin-top: 3px;
+        }
+
+        .how-to-play {
+            font-size: 9px;
+            color: #6a6a8a;
+            text-align: center;
+            line-height: 2.4;
+            max-width: 600px;
+            border: 1px solid #3a3a5a;
+            padding: 14px 18px;
+            margin-top: 5px;
+        }
+
+        .endless-stats {
+            font-size: 10px;
+            color: #8a8aaa;
+            text-align: center;
+            line-height: 2.2;
+            margin-top: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="canvas"></canvas>
+
+        <div id="hud" class="hidden">
+            <span id="hud-left"></span>
+            <span id="hud-right"></span>
+        </div>
+
+        <div id="menu-overlay" class="overlay active">
+            <h1>SHAPE<br>MEMORY</h1>
+            <p class="subtitle">Memorize the shape. Match its size. Match its color.<br>How close can you get?</p>
+            <div class="btn-group">
+                <button class="btn" onclick="startGame('daily')">DAILY</button>
+                <button class="btn" onclick="startGame('endless')">ENDLESS</button>
+            </div>
+            <div class="how-to-play">
+                A shape appears for 5 seconds — memorize it!<br>
+                Then press SPACE to stop at the right size.<br>
+                Then press SPACE to stop at the right color.<br>
+                DAILY: 5 rounds, score is averaged.<br>
+                ENDLESS: Keep going, track your average!
+            </div>
+        </div>
+
+        <div id="instruction" class="instruction"></div>
+
+        <div id="results-overlay" class="overlay">
+            <div class="results-title">RESULTS</div>
+            <canvas id="results-canvas" width="560" height="200"></canvas>
+            <div class="results-labels">
+                <span>TARGET</span>
+                <span>YOURS</span>
+            </div>
+            <div id="results-scores" class="results-scores"></div>
+            <div id="endless-stats" class="endless-stats"></div>
+            <div class="btn-group">
+                <button class="btn" id="btn-next" onclick="nextRound()">NEXT ROUND</button>
+                <button class="btn btn-secondary" id="btn-menu" onclick="goToMenu()">MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resultsCanvas = document.getElementById('results-canvas');
+        const rctx = resultsCanvas.getContext('2d');
+
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // --- DOM References ---
+        const menuOverlay = document.getElementById('menu-overlay');
+        const resultsOverlay = document.getElementById('results-overlay');
+        const instructionEl = document.getElementById('instruction');
+        const hud = document.getElementById('hud');
+        const hudLeft = document.getElementById('hud-left');
+        const hudRight = document.getElementById('hud-right');
+        const resultsScores = document.getElementById('results-scores');
+        const endlessStats = document.getElementById('endless-stats');
+        const btnNext = document.getElementById('btn-next');
+        const btnMenu = document.getElementById('btn-menu');
+
+        // --- Game State ---
+        const STATES = {
+            MENU: 'menu',
+            MEMORIZE: 'memorize',
+            SIZE_MATCH: 'sizeMatch',
+            COLOR_MATCH: 'colorMatch',
+            RESULTS: 'results'
+        };
+
+        let gameState = STATES.MENU;
+        let gameMode = 'daily'; // 'daily' or 'endless'
+
+        // Shape properties
+        const SHAPE_TYPES = ['circle', 'square', 'triangle'];
+        const MIN_SIZE = 40;
+        const MAX_SIZE = 150;
+        const PULSE_MIN = 20;
+        const PULSE_MAX = 180;
+
+        // Current round
+        let targetShape = '';
+        let targetSize = 0;
+        let targetHue = 0;
+        let playerSize = 0;
+        let playerHue = 0;
+
+        // Random phase offsets (so animations don't start at target value)
+        let sizePhaseOffset = 0;
+        let huePhaseOffset = 0;
+
+        // Timing
+        let memorizeStart = 0;
+        let phaseStart = 0;
+        let spacePressed = false;
+
+        // Endless mode stats
+        let roundNumber = 0;
+        let totalSizeScore = 0;
+        let totalColorScore = 0;
+
+        // Animation
+        let animationId = null;
+
+        // --- Utility Functions ---
+        function randomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function randomChoice(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function clamp(val, min, max) {
+            return Math.max(min, Math.min(max, val));
+        }
+
+        function hueDifference(h1, h2) {
+            let diff = Math.abs(h1 - h2);
+            if (diff > 180) diff = 360 - diff;
+            return diff;
+        }
+
+        // Returns a random phase offset that avoids being near 0 (which would start near the midpoint/target)
+        // Ensures the animation starts at a clearly different value
+        function randomPhaseOffset() {
+            // Pick a random offset between 0.3 and 0.7 of a full cycle (avoids 0 and 1 which are near midpoint)
+            const offset = 0.3 + Math.random() * 0.4;
+            return offset * Math.PI * 2;
+        }
+
+        // --- Shape Drawing ---
+        function drawShape(context, type, cx, cy, size, hue, saturation = 70, lightness = 55) {
+            context.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            context.strokeStyle = `hsl(${hue}, ${saturation}%, ${lightness + 15}%)`;
+            context.lineWidth = 2;
+
+            context.beginPath();
+
+            switch (type) {
+                case 'circle':
+                    context.arc(cx, cy, size / 2, 0, Math.PI * 2);
+                    break;
+                case 'square':
+                    context.rect(cx - size / 2, cy - size / 2, size, size);
+                    break;
+                case 'triangle':
+                    const h = size * (Math.sqrt(3) / 2);
+                    context.moveTo(cx, cy - h / 2);
+                    context.lineTo(cx - size / 2, cy + h / 2);
+                    context.lineTo(cx + size / 2, cy + h / 2);
+                    context.closePath();
+                    break;
+            }
+
+            context.fill();
+            context.stroke();
+        }
+
+        // --- State Management ---
+        function setState(newState) {
+            gameState = newState;
+            spacePressed = false;
+
+            // Hide all overlays
+            menuOverlay.classList.remove('active');
+            resultsOverlay.classList.remove('active');
+            instructionEl.classList.remove('active');
+
+            switch (newState) {
+                case STATES.MENU:
+                    menuOverlay.classList.add('active');
+                    hud.classList.add('hidden');
+                    break;
+                case STATES.MEMORIZE:
+                    hud.classList.remove('hidden');
+                    memorizeStart = performance.now();
+                    showInstruction('Memorize this shape!');
+                    break;
+                case STATES.SIZE_MATCH:
+                    phaseStart = performance.now();
+                    sizePhaseOffset = randomPhaseOffset();
+                    showInstruction('Press SPACE to stop at the right size');
+                    break;
+                case STATES.COLOR_MATCH:
+                    phaseStart = performance.now();
+                    huePhaseOffset = randomPhaseOffset();
+                    showInstruction('Press SPACE to stop at the right color');
+                    break;
+                case STATES.RESULTS:
+                    hud.classList.add('hidden');
+                    showResults();
+                    break;
+            }
+        }
+
+        function showInstruction(text) {
+            instructionEl.textContent = text;
+            instructionEl.classList.add('active');
+        }
+
+        // --- Game Logic ---
+        const DAILY_ROUNDS = 5;
+
+        function startGame(mode) {
+            if (gameState !== STATES.MENU && gameState !== STATES.RESULTS) return;
+            gameMode = mode;
+            roundNumber = 0;
+            totalSizeScore = 0;
+            totalColorScore = 0;
+            newRound();
+        }
+
+        function newRound() {
+            roundNumber++;
+            targetShape = randomChoice(SHAPE_TYPES);
+            targetSize = randomInt(MIN_SIZE, MAX_SIZE);
+            targetHue = randomInt(0, 359);
+            playerSize = 0;
+            playerHue = 0;
+            setState(STATES.MEMORIZE);
+        }
+
+        function nextRound() {
+            newRound();
+        }
+
+        function goToMenu() {
+            setState(STATES.MENU);
+        }
+
+        function showResults() {
+            resultsOverlay.classList.add('active');
+            instructionEl.classList.remove('active');
+
+            // Calculate scores
+            const maxSizeDiff = (PULSE_MAX - PULSE_MIN) / 2;
+            const sizeDiff = Math.abs(targetSize - playerSize);
+            const sizeScore = clamp(100 - (sizeDiff / maxSizeDiff * 100), 0, 100);
+
+            const hueDiff = hueDifference(targetHue, playerHue);
+            const colorScore = clamp(100 - (hueDiff / 60 * 100), 0, 100);
+
+            const overallScore = Math.round((sizeScore + colorScore) / 2);
+
+            // Update cumulative stats
+            totalSizeScore += sizeScore;
+            totalColorScore += colorScore;
+
+            // Draw comparison on results canvas
+            rctx.clearRect(0, 0, 560, 200);
+
+            // Target shape (left) - centered at 1/4 of canvas width
+            const displayScale = 0.7;
+            drawShape(rctx, targetShape, 140, 100, targetSize * displayScale, targetHue);
+
+            // Player shape (right) - centered at 3/4 of canvas width
+            drawShape(rctx, targetShape, 420, 100, playerSize * displayScale, playerHue);
+
+            // Score display
+            const sizeClass = sizeScore >= 80 ? 'good' : sizeScore >= 50 ? 'ok' : 'poor';
+            const colorClass = colorScore >= 80 ? 'good' : colorScore >= 50 ? 'ok' : 'poor';
+            const overallClass = overallScore >= 80 ? 'good' : overallScore >= 50 ? 'ok' : 'poor';
+
+            resultsScores.innerHTML = `
+                Size: <span class="${sizeClass}">${Math.round(sizeScore)}%</span> &nbsp;
+                Color: <span class="${colorClass}">${Math.round(colorScore)}%</span> &nbsp;
+                Overall: <span class="${overallClass}">${overallScore}%</span>
+            `;
+
+            // Daily mode: 5 rounds then show final average
+            if (gameMode === 'daily') {
+                if (roundNumber < DAILY_ROUNDS) {
+                    // More rounds to go
+                    endlessStats.innerHTML = `Round ${roundNumber}/${DAILY_ROUNDS} | Running Avg: ${Math.round((totalSizeScore + totalColorScore) / (roundNumber * 2))}%`;
+                    endlessStats.style.display = 'block';
+                    btnNext.style.display = 'inline-block';
+                    btnNext.textContent = 'NEXT ROUND';
+                    btnNext.onclick = nextRound;
+                } else {
+                    // Final round — show averaged results
+                    const avgSize = Math.round(totalSizeScore / DAILY_ROUNDS);
+                    const avgColor = Math.round(totalColorScore / DAILY_ROUNDS);
+                    const avgOverall = Math.round((totalSizeScore + totalColorScore) / (DAILY_ROUNDS * 2));
+                    const avgOverallClass = avgOverall >= 80 ? 'good' : avgOverall >= 50 ? 'ok' : 'poor';
+
+                    endlessStats.innerHTML = `── DAILY COMPLETE ── Final: <span class="${avgOverallClass}">${avgOverall}%</span>`;
+                    endlessStats.style.display = 'block';
+                    btnNext.style.display = 'inline-block';
+                    btnNext.textContent = 'PLAY AGAIN';
+                    btnNext.onclick = () => startGame('daily');
+                }
+            } else if (gameMode === 'endless') {
+                const avgOverall = Math.round((totalSizeScore + totalColorScore) / (roundNumber * 2));
+                endlessStats.innerHTML = `Round ${roundNumber} | Avg: ${avgOverall}%`;
+                endlessStats.style.display = 'block';
+                btnNext.style.display = 'inline-block';
+                btnNext.textContent = 'NEXT ROUND';
+                btnNext.onclick = nextRound;
+            }
+        }
+
+        // --- Input Handling ---
+        let spaceLock = false;
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code !== 'Space') return;
+            e.preventDefault();
+
+            if (spaceLock) return;
+
+            if (gameState === STATES.SIZE_MATCH && !spacePressed) {
+                spacePressed = true;
+                spaceLock = true;
+                setTimeout(() => { spaceLock = false; }, 300);
+
+                // Transition to color match after brief pause
+                setTimeout(() => {
+                    setState(STATES.COLOR_MATCH);
+                }, 500);
+            } else if (gameState === STATES.COLOR_MATCH && !spacePressed) {
+                spacePressed = true;
+                spaceLock = true;
+                setTimeout(() => { spaceLock = false; }, 300);
+
+                // Transition to results after brief pause
+                setTimeout(() => {
+                    setState(STATES.RESULTS);
+                }, 500);
+            }
+        });
+
+        // --- Main Game Loop ---
+        function gameLoop(timestamp) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            switch (gameState) {
+                case STATES.MEMORIZE:
+                    renderMemorize(timestamp);
+                    break;
+                case STATES.SIZE_MATCH:
+                    renderSizeMatch(timestamp);
+                    break;
+                case STATES.COLOR_MATCH:
+                    renderColorMatch(timestamp);
+                    break;
+            }
+
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function renderMemorize(timestamp) {
+            const elapsed = (timestamp - memorizeStart) / 1000;
+            const remaining = Math.max(0, 5 - elapsed);
+
+            // Draw the target shape centered
+            drawShape(ctx, targetShape, 400, 280, targetSize, targetHue);
+
+            // HUD
+            hudLeft.textContent = gameMode === 'daily' ? `ROUND ${roundNumber}/${DAILY_ROUNDS}` : gameMode === 'endless' ? `ROUND ${roundNumber}` : '';
+            hudRight.textContent = `${Math.ceil(remaining)}s`;
+
+            // Transition after 5 seconds
+            if (elapsed >= 5) {
+                setState(STATES.SIZE_MATCH);
+            }
+        }
+
+        function renderSizeMatch(timestamp) {
+            const elapsed = (timestamp - phaseStart) / 1000;
+
+            // Pulse size using sine wave with random phase offset
+            // In endless mode, speed increases significantly each round
+            let pulseSpeed = 0.5;
+            if (gameMode === 'endless') {
+                pulseSpeed = 0.5 + (roundNumber - 1) * 0.25; // +0.25 per round
+            }
+            const t = Math.sin(elapsed * pulseSpeed * Math.PI * 2 + sizePhaseOffset);
+            const currentSize = PULSE_MIN + ((t + 1) / 2) * (PULSE_MAX - PULSE_MIN);
+
+            if (!spacePressed) {
+                playerSize = currentSize;
+            }
+
+            // Draw shape in neutral gray
+            drawShape(ctx, targetShape, 400, 280, playerSize, 0, 0, 45);
+
+            // HUD
+            hudLeft.textContent = gameMode === 'daily' ? `ROUND ${roundNumber}/${DAILY_ROUNDS}` : gameMode === 'endless' ? `ROUND ${roundNumber}` : '';
+            hudRight.textContent = 'SIZE';
+        }
+
+        function renderColorMatch(timestamp) {
+            const elapsed = (timestamp - phaseStart) / 1000;
+
+            // Cycle hue using sine wave within ±60° of target, with random phase offset
+            // In endless mode, speed increases significantly each round
+            let cycleSpeed = 0.3;
+            if (gameMode === 'endless') {
+                cycleSpeed = 0.3 + (roundNumber - 1) * 0.15; // +0.15 per round
+            }
+            const t = Math.sin(elapsed * cycleSpeed * Math.PI * 2 + huePhaseOffset);
+            const currentHue = targetHue + t * 60;
+            // Normalize hue to 0-360
+            const normalizedHue = ((currentHue % 360) + 360) % 360;
+
+            if (!spacePressed) {
+                playerHue = normalizedHue;
+            }
+
+            // Draw shape at player's locked size with cycling color
+            drawShape(ctx, targetShape, 400, 280, playerSize, playerHue);
+
+            // HUD
+            hudLeft.textContent = gameMode === 'daily' ? `ROUND ${roundNumber}/${DAILY_ROUNDS}` : gameMode === 'endless' ? `ROUND ${roundNumber}` : '';
+            hudRight.textContent = 'COLOR';
+        }
+
+        // --- Start ---
+        animationId = requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
